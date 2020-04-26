@@ -1,2 +1,3 @@
-# godot-arpg
-Work for the ARPG [tutorial](https://www.youtube.com/playlist?list=PL9FzW-m48fn2SlrW0KoLT4n5egNdX-W9a)in the Godot Engine from Heartbeast on Youtube
+# ARPG in Godot
+
+This repository is home to all the work for the [ARPG tutorial series](https://www.youtube.com/playlist?list=PL9FzW-m48fn2SlrW0KoLT4n5egNdX-W9a) from Heartbeast on Youtube.
