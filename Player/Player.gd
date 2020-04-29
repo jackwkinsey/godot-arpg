@@ -12,6 +12,8 @@ enum STATE{
 
 var state = STATE.move;
 var velocity = Vector2.ZERO;
+var input_vector = Vector2.ZERO;
+var moving = false;
 var start_direction = Vector2(0, 1);
 
 var animation_tree : AnimationTree;
@@ -24,18 +26,24 @@ func _ready():
 	animation_tree.set("parameters/Idle/blend_position", start_direction);
 	animation_tree.set("parameters/Attack/blend_position", start_direction);
 
-func _process(delta):	
+func _process(_delta):
 	match state:
 		STATE.move:
-			move_state(delta);
+			move_state();
 		STATE.roll:
-			roll_state(delta);
+			roll_state();
 		STATE.attack:
-			attack_state(delta);
+			attack_state();
+
+func _physics_process(delta):
+	if moving:
+		velocity = velocity.move_toward(input_vector * MAX_SPEED, ACCELERATION * delta);
+	else:
+		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta);
 	
+	velocity = move_and_slide(velocity);
 	
-func move_state(delta):
-	var input_vector = Vector2.ZERO;
+func move_state():
 	input_vector.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left");
 	input_vector.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up");
 	input_vector = input_vector.normalized();
@@ -45,21 +53,20 @@ func move_state(delta):
 		animation_tree.set("parameters/Run/blend_position", input_vector);
 		animation_tree.set("parameters/Attack/blend_position", input_vector);
 		state_machine_playback.travel("Run");
-		velocity = velocity.move_toward(input_vector * MAX_SPEED, ACCELERATION * delta);
+		moving = true;
 	else:
+		moving = false;
 		state_machine_playback.travel("Idle");
-		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta);
-		
-	velocity = move_and_slide(velocity);
 	
 	if Input.is_action_just_pressed("attack"):
+		moving = false;
 		state_machine_playback.travel('Attack');
 		state = STATE.attack;
 	
 	if Input.is_action_just_pressed("roll"):
 		state = STATE.roll;
 	
-func attack_state(delta):
+func attack_state():
 	velocity = Vector2.ZERO;
 	# It would be better if we had a way to know if the animation was done
 	# playing, but we can't get access to the "finished" signal of the animation
@@ -68,6 +75,6 @@ func attack_state(delta):
 	if state_machine_playback.get_current_node() == "Idle":
 		state = STATE.move;
 	
-func roll_state(delta):
+func roll_state():
 	print('ROLL');
 	state = STATE.move;
