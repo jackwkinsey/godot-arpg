@@ -2,6 +2,7 @@ extends KinematicBody2D
 
 const ACCELERATION = 600;
 const MAX_SPEED = 80;
+const MAX_ROLL_SPEED = 120;
 const FRICTION = 600;
 
 enum STATE{
@@ -13,18 +14,22 @@ enum STATE{
 var state = STATE.move;
 var velocity = Vector2.ZERO;
 var input_vector = Vector2.ZERO;
+var direction = Vector2.ZERO;
 var moving = false;
+var rolling = false;
 var start_direction = Vector2(0, 1);
 
 var animation_tree : AnimationTree;
 var state_machine_playback : AnimationNodeStateMachinePlayback;
 
 func _ready():
+	direction = start_direction;
 	animation_tree = $AnimationTree;
 	state_machine_playback = animation_tree.get("parameters/playback");
 	animation_tree.active = true;
 	animation_tree.set("parameters/Idle/blend_position", start_direction);
 	animation_tree.set("parameters/Attack/blend_position", start_direction);
+	animation_tree.set("parameters/Roll/blend_position", start_direction);
 
 func _process(_delta):
 	match state:
@@ -36,8 +41,12 @@ func _process(_delta):
 			attack_state();
 
 func _physics_process(delta):
+	# Not sure I like maintaining all of these movement flags.
+	# It may make sense to have process_move_state and physics_process_move_state
 	if moving:
 		velocity = velocity.move_toward(input_vector * MAX_SPEED, ACCELERATION * delta);
+	elif rolling:
+		velocity = velocity.move_toward(direction * MAX_ROLL_SPEED, ACCELERATION * delta);
 	else:
 		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta);
 	
@@ -49,9 +58,11 @@ func move_state():
 	input_vector = input_vector.normalized();
 	
 	if input_vector != Vector2.ZERO:
+		direction = input_vector;
 		animation_tree.set("parameters/Idle/blend_position", input_vector);
 		animation_tree.set("parameters/Run/blend_position", input_vector);
 		animation_tree.set("parameters/Attack/blend_position", input_vector);
+		animation_tree.set("parameters/Roll/blend_position", input_vector);
 		state_machine_playback.travel("Run");
 		moving = true;
 	else:
@@ -64,6 +75,9 @@ func move_state():
 		state = STATE.attack;
 	
 	if Input.is_action_just_pressed("roll"):
+		rolling = true;
+		moving = false;
+		state_machine_playback.travel('Roll');
 		state = STATE.roll;
 	
 func attack_state():
@@ -76,5 +90,7 @@ func attack_state():
 		state = STATE.move;
 	
 func roll_state():
-	print('ROLL');
-	state = STATE.move;
+	if state_machine_playback.get_current_node() == "Idle":
+		velocity = Vector2.ZERO;
+		rolling = false;
+		state = STATE.move;
