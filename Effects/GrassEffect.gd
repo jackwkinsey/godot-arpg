@@ -1,6 +1,6 @@
 extends Node2D
 
-var life_time = 1;
+var life_time = 0.25;
 var decay = false;
 
 onready var animated_sprite = $AnimatedSprite;
