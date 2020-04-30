@@ -2,8 +2,8 @@ extends KinematicBody2D
 
 const ACCELERATION = 600;
 const MAX_SPEED = 80;
-const MAX_ROLL_SPEED = 120;
-const FRICTION = 600;
+const ROLL_SPEED = 160;
+const FRICTION = 1000;
 
 enum STATE{
 	move,
@@ -13,10 +13,8 @@ enum STATE{
 
 var state = STATE.move;
 var velocity = Vector2.ZERO;
-var input_vector = Vector2.ZERO;
 var direction = Vector2.ZERO;
-var moving = false;
-var rolling = false;
+var input_vector = Vector2.ZERO;
 var start_direction = Vector2(0, 1);
 
 var animation_tree : AnimationTree;
@@ -41,21 +39,19 @@ func _process(_delta):
 			attack_state();
 
 func _physics_process(delta):
-	# Not sure I like maintaining all of these movement flags.
-	# It may make sense to have process_move_state and physics_process_move_state
-	if moving:
-		velocity = velocity.move_toward(input_vector * MAX_SPEED, ACCELERATION * delta);
-	elif rolling:
-		velocity = velocity.move_toward(direction * MAX_ROLL_SPEED, ACCELERATION * delta);
-	else:
-		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta);
+	match state:
+		STATE.move:
+			if input_vector != Vector2.ZERO:
+				velocity = velocity.move_toward(direction * MAX_SPEED, ACCELERATION * delta);
+			else:
+				velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta);
+		STATE.roll:
+			velocity = direction * ROLL_SPEED;
 	
 	velocity = move_and_slide(velocity);
 	
 func move_state():
-	input_vector.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left");
-	input_vector.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up");
-	input_vector = input_vector.normalized();
+	input_vector = get_movement_vector_from_input();
 	
 	if input_vector != Vector2.ZERO:
 		direction = input_vector;
@@ -64,22 +60,17 @@ func move_state():
 		animation_tree.set("parameters/Attack/blend_position", input_vector);
 		animation_tree.set("parameters/Roll/blend_position", input_vector);
 		state_machine_playback.travel("Run");
-		moving = true;
 	else:
-		moving = false;
 		state_machine_playback.travel("Idle");
 	
 	if Input.is_action_just_pressed("attack"):
-		moving = false;
 		state_machine_playback.travel('Attack');
 		state = STATE.attack;
 	
 	if Input.is_action_just_pressed("roll"):
-		rolling = true;
-		moving = false;
 		state_machine_playback.travel('Roll');
 		state = STATE.roll;
-	
+
 func attack_state():
 	velocity = Vector2.ZERO;
 	# It would be better if we had a way to know if the animation was done
@@ -92,5 +83,10 @@ func attack_state():
 func roll_state():
 	if state_machine_playback.get_current_node() == "Idle":
 		velocity = Vector2.ZERO;
-		rolling = false;
 		state = STATE.move;
+		
+func get_movement_vector_from_input():
+	var x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left");
+	var y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up");
+	
+	return Vector2(x, y).normalized();
